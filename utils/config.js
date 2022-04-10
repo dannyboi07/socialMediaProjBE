@@ -1,3 +1,3 @@
-const PORT = 3500;
+const PORT = process.env.PORT || 3500;
 
 module.exports = { PORT };
