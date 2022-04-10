@@ -1,0 +1,90 @@
+{
+  "short_name": "React App",
+  "name": "Create React App Sample",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "notification.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "notification.gif",
+      "type": "image/gif",
+      "sizes": "96x96"
+    },
+    {
+      "src": "home.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "icon-create.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "icon-create.gif",
+      "type": "image/gif",
+      "sizes": "96x96"
+    },
+    {
+      "src": "icon-signout.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "icon-signout.gif",
+      "type": "image/gif",
+      "sizes": "96x96"
+    },
+    {
+      "src": "right-chevron.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "left-chevron.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "close-icon.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "heart.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "like.svg",
+      "type": "image/svg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "liked-svg.gif",
+      "type": "image/gif",
+      "sizes": "96x96"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
