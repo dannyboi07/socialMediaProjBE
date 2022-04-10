@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   }
 })
-const upload = multer({ storage: storage, limits: { files: 1, fileSize: 2000000 } });
+const upload = multer({ storage: storage, limits: { files: 1, fileSize: 5000000 } });
 
 registerRouter.post("/", upload.single("profileimg"), fSizeLimitHandler, async(req, res, next) => {
 

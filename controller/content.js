@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
     cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
-const upload = multer({ storage });
+const upload = multer({ storage, limits: { fieldSize: 5000000 } });
 
 contentRouter.get("/", async (req, res, next) => {
 
