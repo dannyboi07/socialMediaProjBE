@@ -37,11 +37,8 @@ contentRouter.get("/", async (req, res, next) => {
     } else {
       allPosts = await db.query("SELECT post.p_id, post.text, (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) as no_comments, post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post JOIN users on users.u_id = post.user_id ORDER BY date desc");
     }
-  
-    const allBlogs = await db.query("SELECT blog.b_id, blog.text, blog.images, blog.likes, blog.date, users.u_id, users.name, users.username, users.imgloc FROM blog JOIN users on users.u_id = blog.user_id ORDER BY date desc");
 
     const allContent = { 
-      // blogs: [...allBlogs.rows], 
       posts: [...allPosts.rows]
     };
     res.json(allContent);
