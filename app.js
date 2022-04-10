@@ -18,7 +18,7 @@ const db = require("./db");
 const imageRouter = require("./controller/images");
 
 webpush.setVapidDetails("mailto:test@test.com", process.env.PUBLIC_VAPID_KEY, process.env.PRIVATE_VAPID_KEY);
-
+console.log(process.env.PRIVATE_VAPID_KEY, process.env.PUBLIC_VAPID_KEY);
 app.use(cors());
 app.use(express.json());
 
