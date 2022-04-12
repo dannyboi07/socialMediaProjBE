@@ -31,9 +31,9 @@ imageRouter.get("/post-images/:key", async (req, res, next) => {
     };
 });
 
-imageRouter.get("/profile-pics/default-prof-img/user-default.svg", async(req, res, next) => {
+imageRouter.get("/profile-pics/default-prof-img/user-default.png", async(req, res, next) => {
     try {
-        const s3Res = await getS3Obj("profile-pics/default-prof-img/user-default.svg");
+        const s3Res = await getS3Obj("profile-pics/default-prof-img/user-default.png");
 
         s3Res.Body.pipe(res);
     } catch (err) {
