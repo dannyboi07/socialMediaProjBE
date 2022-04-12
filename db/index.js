@@ -10,6 +10,10 @@ const pool = new Pool({
     idleTimeoutMillis: 0
 });
 
+pool.on("error", e => {
+  console.error("DB error", e);
+});
+
 module.exports = {
   async query(text, params) {
     const start = Date.now();

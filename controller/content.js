@@ -3,6 +3,8 @@ const db = require("../db");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const webpush = require("web-push");
+const { uploadFile } = require("../s3/s3Client");
+const { unlink } = require("fs/promises");
 
 const multer = require("multer");
 const storage = multer.diskStorage({
@@ -10,32 +12,51 @@ const storage = multer.diskStorage({
     cb(null, "./public/post-images/");
   },
   filename: function(req, file, cb) {
-    if ( file.mimetype !== "image/jpeg"
-      && file.mimetype !== "image/png"
-      && file.mimetype !== "image/svg+xml"
-      && file.mimetype !== "image/gif" ) {
-        return cb(new Error("Wrong file type, only jpgs/jpegs/pngs/svgs/gifs are supported"))
-    };
+    // if ( file.mimetype !== "image/jpeg"
+    //   && file.mimetype !== "image/png"
+    //   && file.mimetype !== "image/svg+xml"
+    //   && file.mimetype !== "image/gif" ) {
+    //     return cb(new Error("Wrong file type, only jpgs/jpegs/pngs/svgs/gifs are supported"))
+    // };
 
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
     cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
-const upload = multer({ storage, limits: { fieldSize: 5000000 } });
+function fileFilter(req, file, cb) {
+  if ( !(/jpg|jpeg|png|svg/.test(file.mimetype)) ) {
+    req.fileTypeValid = false;
+    return cb(null, false);
+  } else {
+    req.fileTypeValid = true;
+    return cb(null, true);
+  };
+};
+const upload = multer({ storage, fileFilter, limits: { fieldSize: 5000000 } });
 
 contentRouter.get("/", async (req, res, next) => {
 
-  let decodedToken = null;
-  if (req.token) decodedToken = jwt.verify(req.token, process.env.SECRET);
-  
-  if (!decodedToken && req.token) return res.status(401).json({ error: "Token missing or invalid" });
-
   try {
+    let decodedToken = null;
+    if (req.token) decodedToken = jwt.verify(req.token, process.env.SECRET);
+    
+    if (!decodedToken && req.token) return res.status(401).json({ error: "Token missing or invalid" });
+  
     let allPosts;
     if (decodedToken) {
-      allPosts = await db.query("SELECT post.p_id, post.text, (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, (SELECT TRUE FROM likes_post_rel WHERE p_id_fk = post.p_id AND u_id_fk = $1) AS liked, (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) AS no_comments, (SELECT EXISTS (SELECT TRUE FROM user_followers WHERE u_id_fk = $1 AND u_flwr_id_fk = users.u_id OR u_id_fk = users.u_id AND u_flwr_id_fk = $1)) AS friends, post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post JOIN users on users.u_id = post.user_id ORDER BY date desc", [decodedToken.id]);
+      allPosts = await db.query(`SELECT post.p_id, post.text, 
+        (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, 
+        (SELECT TRUE FROM likes_post_rel WHERE p_id_fk = post.p_id AND u_id_fk = $1) AS liked, 
+        (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) AS no_comments, 
+        (SELECT EXISTS (SELECT TRUE FROM user_followers WHERE u_id_fk = $1 AND u_flwr_id_fk = users.u_id OR u_id_fk = users.u_id AND u_flwr_id_fk = $1)) AS friends, 
+        post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post 
+        JOIN users on users.u_id = post.user_id ORDER BY date desc`, [decodedToken.id]);
     } else {
-      allPosts = await db.query("SELECT post.p_id, post.text, (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) as no_comments, post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post JOIN users on users.u_id = post.user_id ORDER BY date desc");
+      allPosts = await db.query(`SELECT post.p_id, post.text, 
+        (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, 
+        (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) as no_comments, 
+        post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post 
+        JOIN users on users.u_id = post.user_id ORDER BY date desc`);
     }
 
     const allContent = { 
@@ -52,7 +73,11 @@ contentRouter.get("/post/:id", async (req, res, next) => {
   const post_id = parseInt(req.params.id);
 
   try {
-    const post = await db.query("SELECT post.p_id, post.text, post.likes, post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post JOIN users on users.u_id = post.user_id WHERE post.p_id = $1", [post_id]);
+    const post = await db.query(`SELECT post.p_id, post.text, post.date, p_pics,
+      (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = $1) AS likes,
+      (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = $1) as no_comments, 
+      users.u_id, users.name, users.username, users.imgloc FROM post 
+      JOIN users on users.u_id = post.user_id WHERE post.p_id = $1`, [post_id]);
 
     if (post.rows.length === 0) {
       res.status(404).json(post.rows[0]);
@@ -97,19 +122,16 @@ contentRouter.get("/post/liked/:id", async (req, res, next) => {
 
 contentRouter.post("/post/like/:id", async (req, res, next) => {
 
-  const post_id = parseInt(req.params.id);
-  // const { liked } = req.body;
-  if (!req.token) return res.status(400).json({ error: "Missing token" });
-
-  const decodedToken = jwt.verify(req.token, process.env.SECRET);
-  if ( !decodedToken ) {
-    return res.status(401).json({ error: "Token missing or invalid" });
-  };
-
   try {
 
+    if (!req.token) return res.status(400).json({ error: "Missing token" });
+
+    const decodedToken = jwt.verify(req.token, process.env.SECRET);
+    if ( !decodedToken ) return res.status(401).json({ error: "Token missing or invalid" });
+
+    const post_id = parseInt(req.params.id);
+
     await db.query("INSERT INTO likes_post_rel (p_id_fk, u_id_fk) VALUES ($1, $2)", [post_id, decodedToken.id]);
-    // await db.query("UPDATE post SET likes = (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = $1) WHERE p_id = $1", [post_id]);
     
     res.json({ success: true });
     const userThatLiked = await db.query("SELECT name, imgloc FROM users WHERE u_id = $1", [decodedToken.id]);
@@ -120,8 +142,7 @@ contentRouter.post("/post/like/:id", async (req, res, next) => {
       const payload = {
         title: `${userThatLiked.rows[0].name} liked your post!`,
         icon: userThatLiked.rows[0].imgloc,
-        url: `http://192.168.42.206:3000/post/${post_id}`,
-        // primaryKey: post_id
+        url: `https://secure-meadow-40264.herokuapp.com/post/${post_id}`,
       };
 
       const notifId = await db.query("INSERT INTO notification (u_id_fk, title, icon, url) VALUES ($1, $2, $3, $4, $5) RETURNING notif_id", 
@@ -146,14 +167,15 @@ contentRouter.post("/post/like/:id", async (req, res, next) => {
 });
 
 contentRouter.delete("/post/like/:id", async (req, res, next) => {
-  const post_id = parseInt(req.params.id);
-
-  if (!req.token) return res.status(400).json({ error: "Missing token" });
-
-  const decodedToken = jwt.verify(req.token, process.env.SECRET);
-  if ( !decodedToken ) return res.status(401).json({ error: "Token missing or invalid" });
   
   try {
+    if (!req.token) return res.status(400).json({ error: "Missing token" });
+
+    const decodedToken = jwt.verify(req.token, process.env.SECRET);
+    if ( !decodedToken ) return res.status(401).json({ error: "Token missing or invalid" });
+
+    const post_id = parseInt(req.params.id);
+    
     await db.query("DELETE FROM likes_post_rel WHERE p_id_fk = $1 AND u_id_fk = $2", [post_id, decodedToken.id]);
     await db.query("UPDATE post SET likes = (SELECT COUNT (*) FROM likes_post_rel WHERE p_id_fk = $1) WHERE p_id = $1", [post_id]);
 
@@ -162,33 +184,38 @@ contentRouter.delete("/post/like/:id", async (req, res, next) => {
     console.error(err);
     next();
   }
-})
+});
 
 contentRouter.post("/createPost", upload.array("photos", 10), async (req, res, next) => {
 
+  if (!req.fileTypeValid) return res.status(415).json({ error: "File/s type error, only images allowed" });
+
   if (!req.token) return res.status(400).json({ error: "Missing token" });
 
-  const decodedToken = jwt.verify(req.token, process.env.SECRET);
-  if ( !decodedToken ) {
-    return res.status(401).json({ error: "Token missing or invalid" });
-  }
-
-  const { postText } = req.body;
-
-  let imgsPath = [];
-  if (req.files) {
-    req.files.forEach((file, i) => {
-      console.log(i);
-      imgsPath[i] = `http://localhost:3500/public/post-images/${file.filename}`;
-    });
-  }
-
   try {
+
+    const decodedToken = jwt.verify(req.token, process.env.SECRET);
+    if ( !decodedToken ) {
+      return res.status(401).json({ error: "Token missing or invalid" });
+    }
+
+    const { postText } = req.body;
+
     const doesExist = await db.query("SELECT * FROM USERS WHERE username = $1", [decodedToken.username]);
 
     if (doesExist.rows.length === 0) return res.status(401).json({ error: "User doesn't exist" });
 
+    const imgsPath = [];
+    if (req.files) {
+      req.files.forEach(async (file, i) => {
+        imgsPath.push(`https://secure-meadow-40264.herokuapp.com/api/images/public/post-images/${file.filename}`);
+        await uploadFile(file);
+        await unlink(file);
+      });
+    };
+
     const pstId = await db.query("INSERT INTO post (text, likes, user_id, p_pics) VALUES ($1, $2, $3, $4) RETURNING p_id", [postText, 0, decodedToken.id, imgsPath]);
+
     const resQ = await db.query("SELECT post.p_id, post.text, post.likes, post.date, p_pics, users.u_id, users.name, users.username, users.imgloc FROM post JOIN users on users.u_id = post.user_id WHERE p_id = $1", [pstId.rows[0].p_id]);
 
     res.json(resQ.rows);
@@ -209,7 +236,7 @@ contentRouter.post("/createPost", upload.array("photos", 10), async (req, res, n
         title: `${doesExist.rows[0].name} posted`,
         body: postText.slice(51),
         icon: doesExist.rows[0].imgloc,
-        url: `http://localhost:3000/post/${pstId.rows[0].p_id}`
+        url: `https://secure-meadow-40264.herokuapp.com/post/${pstId.rows[0].p_id}`
       };
 
       const primKey = await db.query("INSERT INTO notification (u_id_fk, title, body, icon, url) VALUES ($1, $2, $3, $4, $5) RETURNING notif_id", [userFlwrSubKeys.u_id, payload.title, payload.body, payload.icon, payload.url]);
@@ -266,7 +293,7 @@ contentRouter.post("/post/:id/comment", (req, res, next) => {
             title: `${userDetails.rows[0].name} commented`,
             body: req.body.comment.slice(51),
             icon: userDetails.rows[0].imgloc,
-            url: `http://192.168.42.206:3000/post/${postId}`,
+            url: `https://secure-meadow-40264.herokuapp.com/post/${postId}`,
           };
 
           const notif_id = await db.query("INSERT INTO notification (u_id_fk, title, body, icon, url) VALUES ($1, $2, $3, $4, $5) RETURNING notif_id", 
@@ -293,19 +320,6 @@ contentRouter.post("/post/:id/comment", (req, res, next) => {
       console.error(err);
       next();
     });
-  // try {
-  //   const comPostRes = await db.query("INSERT INTO comments_post_rel (comment, p_id_fk, u_id_fk) VALUES ($1, $2, $3) RETURNING *", [req.body.comment, postId, decodedToken.id]);
-  //   const userDetails = await db.query("SELECT u_id, name, username, imgloc FROM USERS WHERE u_id = $1", [decodedToken.id]);
-    
-  //   res.status(200).json({
-  //      ...comPostRes.rows[0],
-  //      ...userDetails[0]
-  //   });
-
-  // } catch (err) {
-  //   console.error(err);
-  //   next();
-  // }
 });
 
 

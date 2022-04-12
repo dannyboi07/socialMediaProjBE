@@ -15,9 +15,9 @@ function extractToken(req, res, next) {
   next();
 };
 
-function fSizeLimitHandler(err, req, res, next) {
+function fileValidationHandler(err, req, res, next) {
   if (err) {
-    return res.status(413).json({ error: "File size limit exceeded, max of 2MB" });
+    return res.status(413).json({ error: err });
   } else {
     next();
   }
@@ -30,6 +30,6 @@ function unknownEndpoint(req, res) {
 module.exports = { 
   requestLogger, 
   extractToken,
-  fSizeLimitHandler,
+  fileValidationHandler,
   unknownEndpoint
 };

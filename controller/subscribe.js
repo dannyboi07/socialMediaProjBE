@@ -7,17 +7,14 @@ subscriptionRouter.get("/pubkey", (req, res, next) => {
 })
 
 subscriptionRouter.post("/", async (req, res, next) => {
-    
-    const token = jwt.verify(req.token, process.env.SECRET);
-
-    if (!token) return res.status(400).json({ error: "Token missing or invalid" });
-
-    const subscription = req.body;
-
-    console.log("subscription", subscription);
-    console.log("token", token);
 
     try {
+        const token = jwt.verify(req.token, process.env.SECRET);
+
+        if (!token) return res.status(400).json({ error: "Token missing or invalid" });
+    
+        const subscription = req.body;
+    
         if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) 
         return res.status(400).json({ error: "Bad req: No subscription keys" });
 

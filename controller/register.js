@@ -2,7 +2,7 @@ const registerRouter = require("express").Router();
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const path = require("path");
-const { fSizeLimitHandler } = require("../utils/middleware");
+const { fileValidationHandler } = require("../utils/middleware");
 const { uploadFile }  = require("../s3/s3Client");
 const { unlink } = require("fs/promises");
 
@@ -11,18 +11,29 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "./tempuploads/")
   },
-  filename: function (req, file, cb) {
-    if ( !(/jpg|jpeg|png|svg/.test(file.mimetype)) ) {
-      return cb(null, new Error("Wrong file type, only jpg/jpeg/png/svg are supported"));
-    }
 
+  filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   }
-})
-const upload = multer({ storage: storage, limits: { files: 1, fileSize: 5000000 } });
+});
 
-registerRouter.post("/", upload.single("profileimg"), fSizeLimitHandler, async(req, res, next) => {
+function fileFilter(req, file, cb) {
+  if ( !(/jpg|jpeg|png|svg/.test(file.mimetype)) ) {
+    req.fileTypeValid = false;
+    cb(null, false);
+  } else {
+    req.fileTypeValid = true;
+    cb(null, true)
+  };
+};
+const upload = multer({ storage: storage, fileFilter, limits: { files: 1, fileSize: 5000000 } });
+
+registerRouter.post("/", upload.single("profileimg"), fileValidationHandler, async(req, res, next) => {
+
+  if (!req.fileTypeValid) {
+    return res.status(415).json({ error: "File type error, only images allowed" });
+  }
 
   const { name, username, password } = req.body;
   if (!name || !username || !password) return res.status(400).json({ error: "Incomplete request" });
@@ -50,7 +61,7 @@ registerRouter.post("/", upload.single("profileimg"), fSizeLimitHandler, async(r
 
   let profImgPath = "https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/default-prof-img/user-default.svg";
   if (req.file) {
-    profImgPath = `http://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/${req.file.filename}`;
+    profImgPath = `https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/${req.file.filename}`;
   }
 
   try {

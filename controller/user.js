@@ -17,9 +17,13 @@ userRouter.get("/", async (req, res, next) => {
         if (foundUser.rows.length === 1) {
 
             if (decodedToken) {
-                const userPosts = await db.query("SELECT p_id, text, post.date, p_pics, user_id as u_id, (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, (SELECT TRUE FROM likes_post_rel WHERE p_id_fk = post.p_id AND u_id_fk = $2) as liked, (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) AS no_comments from post WHERE user_id = $1", [foundUser.rows[0].u_id, decodedToken.id]);
+                const userPosts = await db.query(`SELECT p_id, text, post.date, p_pics, user_id as u_id, 
+                    (SELECT COUNT(*) FROM likes_post_rel WHERE p_id_fk = post.p_id) as likes, 
+                    (SELECT TRUE FROM likes_post_rel WHERE p_id_fk = post.p_id AND u_id_fk = $2) as liked, 
+                    (SELECT COUNT(*) FROM comments_post_rel WHERE p_id_fk = post.p_id) AS no_comments from post 
+                    WHERE user_id = $1`, [foundUser.rows[0].u_id, decodedToken.id]);
 
-                const followsOrNot = await db.query("SELECT EXISTS (SELECT TRUE FROM user_followers WHERE u_id_fk = $1 AND u_flwr_id_fk = $2 OR u_id_fk = $2 AND u_flwr_id_fk = $1) AS friends", [foundUser.rows[0].u_id, decodedToken.id]);
+                const followsOrNot = await db.query(`SELECT EXISTS (SELECT TRUE FROM user_followers WHERE u_id_fk = $1 AND u_flwr_id_fk = $2 OR u_id_fk = $2 AND u_flwr_id_fk = $1) AS friends`, [foundUser.rows[0].u_id, decodedToken.id]);
 
                 const response = {
                     ...foundUser.rows[0],
@@ -90,7 +94,6 @@ userRouter.post("/follow/:uid", async (req, res, next) => {
 
         if (foundUserToFollow.rows.length === 1) {
             await db.query("INSERT INTO user_followers (u_id_fk, u_flwr_id_fk) VALUES ($1, $2)", [userToFollowId, decodedToken.id]);
-            // await db.query("INSERT INTO user_following (u_id_fk, u_flwng_id_fk) VALUES ($1, $2)", [decodedToken.id, userToFollowId]);
 
             return res.status(200).json({ success: true });
         } else return res.status(404).json({ success: false, error: "User not found" });
@@ -112,8 +115,7 @@ userRouter.delete("/follow/:uid", async (req, res, next) => {
     const userToUnfollowId = parseInt(req.params.uid);
 
     try {
-        // const foundUserToUnfollow = await db.query("SELECT COUNT(*) FROM users WHERE u_id = $1", [userToUnfollowId]);
-        // await db.query("DELETE FROM user_following WHERE u_id_fk = $1", [decodedToken.id]);
+        
         await db.query("DELETE FROM user_followers WHERE u_id_fk = $1 AND u_flwr_id_fk = $2", [userToUnfollowId, decodedToken.id]);
 
         return res.status(200).json({ success: true });

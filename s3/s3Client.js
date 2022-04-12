@@ -34,6 +34,7 @@ function uploadFile(file) {
 };
 
 function getS3Obj(Key) {
+    console.log(Key);
     const getParams = {
         Bucket: "social-media-proj-bucket-1",
         Key

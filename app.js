@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 require("dotenv").config();
 const cors = require("cors");
+const path = require("path");
 
 const webpush = require("web-push");
 const middleware = require("./utils/middleware");
@@ -21,11 +22,10 @@ webpush.setVapidDetails("mailto:test@test.com", process.env.PUBLIC_VAPID_KEY, pr
 app.use(cors());
 app.use(express.json());
 
-app.use("/", express.static("build"));
-
 app.use(middleware.requestLogger);
 
-//app.use("/api/images", imageRouter);
+app.use(express.static("build"));
+
 app.use("/api/images/public", imageRouter);
 app.use("/api/content", middleware.extractToken, contentRouter);
 app.use("/api/comms", middleware.extractToken, commsRouter);
@@ -139,8 +139,8 @@ app.get("/testrds", async (req, res, next) => {
 
 app.use("/api/subscribe", middleware.extractToken, subscriptionRouter);
 
-app.get("/", (req, res) => {
-    res.send("<h1>Hello world</h1>");
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname + "/build/index.html"));
 });
 
 app.use(middleware.unknownEndpoint);

@@ -29,7 +29,7 @@ self.addEventListener("install", async e => {
 
 self.addEventListener("push", async e => {
     const data = e.data.json();
-    // console.log("Push received...", data);
+    //console.log("Push received...", data);
     const options = {
         body: data.body || "Check it out",
         icon: data.icon,
@@ -45,7 +45,7 @@ self.addEventListener("push", async e => {
     for (const client of allClients){
         const url = new URL(client.url);
 
-        if (url.hostname === "secure-meadow-40264.herokuapp.com" && client.visibilityState === "visible") {
+        if (url.hostname === "localhost" && client.visibilityState === "visible") {
             client.postMessage(data);
             return;
         }
@@ -60,17 +60,17 @@ self.addEventListener('notificationclick', async e => {
     console.log(notification);
 
     if (action === "close") {
-        console.log("clicked close");
+        //console.log("clicked close");
         notification.close();
     } else {
-        console.log("clicked");
+        //console.log("clicked");
         clients.openWindow(notification.data.url);
 
         const allClients = await clients.matchAll({ includeUncontrolled: true });
         for (const client of allClients){
             const url = new URL(client.url);
 
-            if (url.hostname === "secure-meadow-40264.herokuapp.com") {
+            if (url.hostname === "localhost") {
                 console.log(primaryKey);
                 client.postMessage({ reqtype: "GET_TOKEN", primaryKey });
                 return;
@@ -92,8 +92,8 @@ self.addEventListener('notificationclick', async e => {
 // }
 
 self.addEventListener("message", e => {
-    console.log(e.data);
-    fetch(`https://secure-meadow-40264.herokuapp.com/api/user/notif/${e.data.primaryKey}`, {
+    //console.log(e.data);
+    fetch(`http://localhost:3500/api/user/notif/${e.data.primaryKey}`, {
         method: "DELETE",
         headers: {
             "Authorization": `Bearer ${e.data.token}`
