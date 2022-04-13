@@ -4,11 +4,11 @@ const db = require("../db");
 searchRouter.get("/", async (req, res, next) => {
     const { query } = req.query;
 
-    let decodedToken = null;
-    if (req.token) {
-        decodedToken = jwt.verify(req.token, process.env.SECRET);
-        if (!decodedToken) return res.status(401).json({ error: "Token missing or invalid" });
-    };
+    // let decodedToken = null;
+    // if (req.token) {
+    //     decodedToken = jwt.verify(req.token, process.env.SECRET);
+    //     if (!decodedToken) return res.status(401).json({ error: "Token missing or invalid" });
+    // };
 
     try {
         const foundUsers = await db.query(`SELECT u_id, name, username, imgloc, email FROM users 

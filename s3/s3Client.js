@@ -7,13 +7,16 @@ const credentials = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY 
 };
 
+// Reminder: Currently using keys of IAM user that was created specifically 
+// just for accessing the bucket
+
 const s3Client = new S3Client({ credentials, region });
 
-function uploadProfImg(file) {
-    const fileReadStream = fs.createReadStream(file.path);
+function uploadProfImg(filePath) {
+    const fileReadStream = fs.createReadStream(filePath);
 
     const uploadParams = {
-        Bucket: "social-media-proj-bucket-1",
+        Bucket: "socio-database-dev",
         Key: `public/profile-pics/${file.filename}`,
         Body: fileReadStream
     };
@@ -21,11 +24,11 @@ function uploadProfImg(file) {
     return s3Client.send(new PutObjectCommand(uploadParams));
 }
 
-function uploadFile(file) {
-    const fileReadStream = fs.createReadStream(file.path);
+function uploadFile(filePath) {
+    const fileReadStream = fs.createReadStream(filePath);
 
     const uploadParams = {
-        Bucket: "social-media-proj-bucket-1",
+        Bucket: "socio-database-dev",
         Key: `public/post-images/${file.filename}`,
         Body: fileReadStream
     };
@@ -36,7 +39,7 @@ function uploadFile(file) {
 function getS3Obj(Key) {
     console.log(Key);
     const getParams = {
-        Bucket: "social-media-proj-bucket-1",
+        Bucket: "socio-database-dev",
         Key
     };
 

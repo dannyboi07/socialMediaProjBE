@@ -2,8 +2,7 @@ const registerRouter = require("express").Router();
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const path = require("path");
-const { fileValidationHandler } = require("../utils/middleware");
-const { uploadFile }  = require("../s3/s3Client");
+const { uploadProfImg }  = require("../s3/s3Client");
 const { unlink } = require("fs/promises");
 
 const multer = require("multer");
@@ -19,20 +18,20 @@ const storage = multer.diskStorage({
 });
 
 function fileFilter(req, file, cb) {
-  if ( !(/jpg|jpeg|png|svg/.test(file.mimetype)) ) {
-    req.fileTypeValid = false;
-    cb(null, false);
-  } else {
+  if ( /jpg|jpeg|png|svg/.test(file.mimetype) ) {
     req.fileTypeValid = true;
-    cb(null, true)
+    cb(null, true);
+  } else {
+    req.fileTypeValid = false;
+    cb(null, false)
   };
 };
 const upload = multer({ storage: storage, fileFilter, limits: { files: 1, fileSize: 5000000 } });
 
-registerRouter.post("/", upload.single("profileimg"), fileValidationHandler, async(req, res, next) => {
+registerRouter.post("/", upload.single("profileimg"), async(req, res, next) => {
 
   if (!req.fileTypeValid) {
-    return res.status(415).json({ error: "File type error, only images allowed" });
+    return res.status(415).json({ error: "Invalid file type, only images allowed" });
   }
 
   const { name, username, password } = req.body;
@@ -57,12 +56,7 @@ registerRouter.post("/", upload.single("profileimg"), fileValidationHandler, asy
     return res.status(400).json({
       error: "Name must be between the length of 1-30 characters"
     })
-  }
-
-  let profImgPath = "https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/default-prof-img/user-default.svg";
-  if (req.file) {
-    profImgPath = `https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/${req.file.filename}`;
-  }
+  };
 
   try {
     const doesExist = await db.query("SELECT * FROM users WHERE username = $1 LIMIT 1", [username]);
@@ -70,7 +64,11 @@ registerRouter.post("/", upload.single("profileimg"), fileValidationHandler, asy
 
     const pwHash = await bcrypt.hash(password, 10);
 
-    await uploadFile(req.file);
+    let profImgPath = "https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/default-prof-img/user-default.svg";
+    if (req.file) {
+      profImgPath = `https://secure-meadow-40264.herokuapp.com/api/images/public/profile-pics/${req.file.filename}`;
+      await uploadProfImg(req.file.path);
+    }
 
     await db.query("INSERT INTO USERS (name, username, password_hash, imgloc) VALUES ($1, $2, $3, $4)", [name, username, pwHash, profImgPath]);
 

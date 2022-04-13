@@ -16,7 +16,7 @@ loginRouter.post("/", async(req, res, next) => {
     const pwCorrect = await bcrypt.compare(password, doesExist.rows[0].password_hash);
     if (!pwCorrect) return res.status(401).json({ error: "The password is incorrect" });
 
-    await db.query("UPDATE users SET u_time_zone = $1 WHERE u_id = $2", [u_time_zone, doesExist.rows[0].u_id]);
+    if (u_time_zone) await db.query("UPDATE users SET u_time_zone = $1 WHERE u_id = $2", [u_time_zone, doesExist.rows[0].u_id]);
 
     const preToken = {
       username: doesExist.rows[0].username,
@@ -30,10 +30,11 @@ loginRouter.post("/", async(req, res, next) => {
       uId: doesExist.rows[0].u_id,
       username: doesExist.rows[0].username, 
       name: doesExist.rows[0].name, 
-      profImgSrc: doesExist.rows[0].imgloc });
+      profImgSrc: doesExist.rows[0].imgloc 
+    });
   } catch(err) {
     console.error(err);
-    next(err);
+    next();
   };
 });
 
