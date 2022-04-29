@@ -4,10 +4,6 @@ const jwt = require("jsonwebtoken");
 const webpush = require("web-push");
 const { tokenValidation } = require("../utils/middleware")
 
-commsRouter.get("/", async (req, res, next) => {
-    res.json({ secret: process.env.SECRET });
-})
-
 commsRouter.get("/contacted", tokenValidation, async (req, res, next) => {
 
     try {
